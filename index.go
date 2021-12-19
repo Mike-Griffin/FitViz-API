@@ -6,15 +6,22 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
 
-type JsonResponse struct {
+type JsonActivityResponse struct {
 	Type    string     `json:"type"`
 	Data    []Activity `json:"data"`
 	Message string     `json:"message"`
+}
+
+type JsonUserResponse struct {
+	Type    string `json:"type"`
+	Data    User   `json:"data"`
+	Message string `json:"message"`
 }
 
 // DB set up
@@ -64,7 +71,7 @@ func GetActivities(w http.ResponseWriter, r *http.Request) {
 		activities = append(activities, Activity{ActivityID: id, Type: t})
 	}
 
-	var response = JsonResponse{Type: "success", Data: activities}
+	var response = JsonActivityResponse{Type: "success", Data: activities}
 
 	json.NewEncoder(w).Encode(response)
 }
@@ -73,10 +80,10 @@ func GetActivities(w http.ResponseWriter, r *http.Request) {
 func CreateActivity(w http.ResponseWriter, r *http.Request) {
 	t := r.FormValue("type")
 
-	var response = JsonResponse{}
+	var response = JsonActivityResponse{}
 
 	if t == "" {
-		response = JsonResponse{Type: "error", Message: "You are missing a type"}
+		response = JsonActivityResponse{Type: "error", Message: "You are missing a type"}
 	} else {
 		db := setupDB()
 
@@ -102,11 +109,44 @@ func CreateActivity(w http.ResponseWriter, r *http.Request) {
 
 			createdActivity = append(createdActivity, Activity{ActivityID: id, Type: t})
 		}
-		response = JsonResponse{Type: "success", Data: createdActivity, Message: "The activity has been inserted successfully!"}
+		response = JsonActivityResponse{Type: "success", Data: createdActivity, Message: "The activity has been inserted successfully!"}
 	}
 
 	json.NewEncoder(w).Encode(response)
 
+}
+
+// create a user
+func createUser(w http.ResponseWriter, r *http.Request) {
+	var response = JsonUserResponse{}
+	dt := time.Now().String()
+	db := setupDB()
+
+	printMessage("inserting user into db")
+
+	var lastInsertID int
+	err := db.QueryRow("INSERT INTO users(createtime) VALUES($1) returning id;", dt).Scan(&lastInsertID)
+	// check errors
+	checkErr(err)
+	fmt.Println(lastInsertID)
+	var createdUser User
+	rows, err := db.Query("SELECT * FROM users WHERE id=($1)", lastInsertID)
+
+	checkErr(err)
+
+	for rows.Next() {
+		var id int
+		var time string
+
+		err = rows.Scan(&id, &time)
+
+		checkErr(err)
+
+		createdUser = User{UserID: id, CreatedTime: time}
+	}
+	response = JsonUserResponse{Type: "success", Data: createdUser, Message: "The user has been inserted successfully!"}
+
+	json.NewEncoder(w).Encode(response)
 }
 
 func main() {
@@ -117,6 +157,9 @@ func main() {
 
 	// Create a property
 	router.HandleFunc("/activity/", CreateActivity).Methods("POST")
+
+	// Create a user
+	router.HandleFunc("/user/", createUser).Methods("POST")
 
 	print("listening on 8000")
 	log.Fatal(http.ListenAndServe(":8000", router))
