@@ -63,12 +63,13 @@ func GetActivities(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var id int
 		var t string
+		var userId sql.NullInt16
 
-		err = rows.Scan(&id, &t)
+		err = rows.Scan(&id, &t, &userId)
 
 		checkErr(err)
 
-		activities = append(activities, Activity{ActivityID: id, Type: t})
+		activities = append(activities, Activity{ActivityID: id, Type: t, UserID: userId})
 	}
 
 	var response = JsonActivityResponse{Type: "success", Data: activities}
@@ -79,18 +80,21 @@ func GetActivities(w http.ResponseWriter, r *http.Request) {
 // create an activity
 func CreateActivity(w http.ResponseWriter, r *http.Request) {
 	t := r.FormValue("type")
+	userId := r.FormValue("user_id")
 
 	var response = JsonActivityResponse{}
 
 	if t == "" {
 		response = JsonActivityResponse{Type: "error", Message: "You are missing a type"}
+	} else if userId == "" {
+		response = JsonActivityResponse{Type: "error", Message: "You are missing a user id"}
 	} else {
 		db := setupDB()
 
 		printMessage("inserting into db")
 
 		var lastInsertID int
-		err := db.QueryRow("INSERT INTO activities(type) VALUES($1) returning id;", t).Scan(&lastInsertID)
+		err := db.QueryRow("INSERT INTO activities(type, user_id) VALUES($1, $2) returning id;", t, userId).Scan(&lastInsertID)
 		// check errors
 		checkErr(err)
 		fmt.Println(lastInsertID)
@@ -102,12 +106,13 @@ func CreateActivity(w http.ResponseWriter, r *http.Request) {
 		for rows.Next() {
 			var id int
 			var t string
+			var userId sql.NullInt16
 
-			err = rows.Scan(&id, &t)
+			err = rows.Scan(&id, &t, &userId)
 
 			checkErr(err)
 
-			createdActivity = append(createdActivity, Activity{ActivityID: id, Type: t})
+			createdActivity = append(createdActivity, Activity{ActivityID: id, Type: t, UserID: userId})
 		}
 		response = JsonActivityResponse{Type: "success", Data: createdActivity, Message: "The activity has been inserted successfully!"}
 	}
