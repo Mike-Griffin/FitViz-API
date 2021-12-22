@@ -63,7 +63,7 @@ func GetActivities(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var id int
 		var t string
-		var userId sql.NullInt16
+		var userId int
 
 		err = rows.Scan(&id, &t, &userId)
 
@@ -106,7 +106,7 @@ func CreateActivity(w http.ResponseWriter, r *http.Request) {
 		for rows.Next() {
 			var id int
 			var t string
-			var userId sql.NullInt16
+			var userId int
 
 			err = rows.Scan(&id, &t, &userId)
 
@@ -119,6 +119,32 @@ func CreateActivity(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(response)
 
+}
+
+// delete an activity
+func deleteActivity(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	activityID := params["activityid"]
+
+	var response = JsonActivityResponse{}
+
+	if activityID == "" {
+		response = JsonActivityResponse{Type: "error", Message: "You are missing activityid parameter."}
+	} else {
+		db := setupDB()
+
+		printMessage("Deleting activity from DB")
+
+		_, err := db.Exec("DELETE FROM activities where id = $1", activityID)
+
+		// check errors
+		checkErr(err)
+
+		response = JsonActivityResponse{Type: "success", Message: "The activity has been deleted successfully!"}
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
 
 // create a user
@@ -154,17 +180,49 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// delete a user
+func deleteUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	userId := params["userid"]
+
+	var response = JsonUserResponse{}
+
+	if userId == "" {
+		response = JsonUserResponse{Type: "error", Message: "You are missing userid parameter."}
+	} else {
+		db := setupDB()
+
+		printMessage("Deleting user from DB")
+
+		_, err := db.Exec("DELETE FROM users where user_id = $1", userId)
+
+		// check errors
+		checkErr(err)
+
+		response = JsonUserResponse{Type: "success", Message: "The user has been deleted successfully!"}
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
 func main() {
 	router := mux.NewRouter()
 
-	// Get all properties
+	// Get all activities
 	router.HandleFunc("/activities/", GetActivities).Methods("GET")
 
-	// Create a property
+	// Create an activity
 	router.HandleFunc("/activity/", CreateActivity).Methods("POST")
+
+	// Delete an activity
+	router.HandleFunc("/activity/{activityid}", deleteActivity).Methods("DELETE")
 
 	// Create a user
 	router.HandleFunc("/user/", createUser).Methods("POST")
+
+	// Delete a user
+	router.HandleFunc("/user/{userid}", deleteUser).Methods("DELETE")
 
 	print("listening on 8000")
 	log.Fatal(http.ListenAndServe(":8000", router))

@@ -1,11 +1,9 @@
 package main
 
-import "database/sql"
-
 type Activity struct {
-	ActivityID int           `json:"id"`
-	Type       string        `json:"type"`
-	UserID     sql.NullInt16 `json:"user_id"`
+	ActivityID int    `json:"id"`
+	Type       string `json:"type"`
+	UserID     int    `json:"user_id"`
 }
 
 type User struct {
